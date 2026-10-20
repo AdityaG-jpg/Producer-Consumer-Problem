@@ -1,0 +1,324 @@
+<!DOCTYPE html>
+<!--
+  Producer-Consumer Synchronization Simulator
+  SLA Project (Operating Systems) - Stage 3 (advanced model)
+  Shah & Anchor Kutchhi Engineering College, Computer Engineering
+  Team: Rishi Ghoricha (SYCM2-13), Aditya Ghosh (SYCM2-14)
+
+  Open this file in any modern browser. No installation, server or
+  internet connection is required: everything is plain HTML/CSS/JS.
+-->
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <title>Producer-Consumer Simulator</title>
+  <link rel="stylesheet" href="css/style.css">
+</head>
+<body>
+
+<!-- ================= HEADER + TABS ================= -->
+<header class="topbar">
+  <div class="brand">
+    <div class="logo-mark" aria-hidden="true">
+      <span></span><span></span><span></span>
+    </div>
+    <div>
+      <h1>Producer&ndash;Consumer Synchronization Simulator</h1>
+      <p>Unbuffered &middot; Bounded &middot; Unbounded buffer &middot; Semaphore + Mutex vs Busy-Waiting Spinlock</p>
+    </div>
+  </div>
+  <nav class="tabs" role="tablist">
+    <button class="tab active" data-tab="sim" role="tab">Simulator</button>
+    <button class="tab" data-tab="compare" role="tab">Compare Algorithms</button>
+    <button class="tab" data-tab="buffers" role="tab">Buffered vs Unbuffered</button>
+  </nav>
+</header>
+
+<main>
+  <!-- ================= SIMULATOR TAB ================= -->
+  <section id="tab-sim" class="tab-page active">
+
+    <!-- ---------- Setup: the three main choices are always visible, the numbers are one click away ---------- -->
+    <div class="panel config-panel setup">
+      <div class="setup-grid">
+        <div class="setup-col">
+          <label class="field-label" for="preset">Preset scenario</label>
+          <select id="preset" class="select"></select>
+        </div>
+
+        <div class="setup-col wide">
+          <div class="field-label">Algorithm</div>
+          <div id="algo-options" class="algo-options">
+            <label class="algo-card" title="Blocking: a waiting thread sleeps">
+              <input type="radio" name="algorithm" value="semaphore" checked>
+              <span class="algo-tag a1">Algorithm 1</span>
+              <strong>Semaphore + Mutex</strong>
+              <small>waiting thread sleeps</small>
+            </label>
+            <label class="algo-card" title="Polling: a waiting thread spins on the CPU">
+              <input type="radio" name="algorithm" value="busywait">
+              <span class="algo-tag a2">Algorithm 2</span>
+              <strong>Busy-Waiting Spinlock</strong>
+              <small>waiting thread spins</small>
+            </label>
+            <label class="algo-card demo" title="Shows the race condition">
+              <input type="radio" name="algorithm" value="nosync">
+              <span class="algo-tag a0">Demo</span>
+              <strong>No Synchronization</strong>
+              <small>shows the race condition</small>
+            </label>
+          </div>
+        </div>
+
+        <div class="setup-col">
+          <div class="field-label">Buffer type</div>
+          <div id="buffer-options" class="seg" role="radiogroup">
+            <label title="Zero capacity: the producer waits until a consumer takes the item (rendezvous)">
+              <input type="radio" name="bufferType" value="unbuffered"><span>Unbuffered<small>0 slots</small></span>
+            </label>
+            <label title="N slots: the producer waits only when the buffer is full">
+              <input type="radio" name="bufferType" value="bounded" checked><span>Bounded<small>N slots</small></span>
+            </label>
+            <label title="No limit: the producer never waits, but memory keeps growing">
+              <input type="radio" name="bufferType" value="unbounded"><span>Unbounded<small>&infin; slots</small></span>
+            </label>
+          </div>
+          <div class="field-error" id="e-bufferType"></div>
+        </div>
+      </div>
+
+      <!-- Click to open: all numeric inputs, deadlock switch, scheduler -->
+      <details class="fold inner" id="d-settings">
+        <summary class="fold-head"><span class="fold-title">More settings</span><span class="fold-hint">threads, times, CPU, scheduler, deadlock demo</span></summary>
+        <div class="fold-body">
+          <label class="check">
+            <input type="checkbox" id="reversedWait">
+            <span>Reverse <code>wait()</code> order <em>(deadlock demo)</em></span>
+          </label>
+
+          <div id="fields" class="fields"></div>
+
+          <div class="field-row">
+            <div>
+              <label class="field-label" for="scheduler">CPU scheduler</label>
+              <select id="scheduler" class="select">
+                <option value="rr">Round robin</option>
+                <option value="random">Random (seeded)</option>
+              </select>
+            </div>
+            <div id="seed-slot"></div>
+          </div>
+        </div>
+      </details>
+
+      <div id="form-messages" class="form-messages" aria-live="polite"></div>
+    </div>
+
+    <!-- ---------- Execute ---------- -->
+    <div class="panel exec-bar">
+      <div class="controls">
+        <button id="btn-run" class="btn primary">&#9654; Run</button>
+        <button id="btn-step" class="btn">Step</button>
+        <button id="btn-pause" class="btn">&#10074;&#10074; Pause</button>
+        <button id="btn-reset" class="btn ghost">&#8634; Reset</button>
+      </div>
+      <div class="speed">
+        <label for="speed">Speed</label>
+        <input type="range" id="speed" min="1" max="40" value="8">
+        <span id="speed-val" title="ticks per second">8/s</span>
+      </div>
+      <div class="tick-box">
+        <span class="tick-label">Tick</span>
+        <span id="tick" class="tick-num">0</span>
+      </div>
+      <span id="status-pill" class="status-pill ready">Ready</span>
+    </div>
+
+    <div id="banner" class="banner hidden"></div>
+
+    <!-- ---------- Live execution (always visible) ---------- -->
+    <div class="panel stage">
+      <div class="stage-head">
+        <h2 class="panel-title inline">Live Execution</h2>
+        <div class="legend" id="legend"></div>
+      </div>
+      <div class="stage-grid">
+        <div class="lane">
+          <div class="lane-title">Producers</div>
+          <div id="producers" class="thread-list"></div>
+        </div>
+        <div class="buffer-wrap">
+          <div class="buffer-title"><span id="buffer-title-text">Bounded Buffer</span> <span id="buffer-meta"></span></div>
+          <div id="buffer" class="buffer"></div>
+          <div id="buffer-foot" class="buffer-foot"></div>
+        </div>
+        <div class="lane">
+          <div class="lane-title">Consumers</div>
+          <div id="consumers" class="thread-list"></div>
+        </div>
+      </div>
+    </div>
+
+    <!-- ---------- Details: click a heading to open it ---------- -->
+    <div class="folds">
+      <details class="fold panel" id="d-perf">
+        <summary class="fold-head"><span class="fold-title">Performance</span><span class="fold-hint">metrics and buffer chart</span></summary>
+        <div class="fold-body">
+          <div id="metrics" class="metrics"></div>
+          <div class="chart-head">
+            <span>Buffer occupancy over time</span>
+            <span class="chart-key"><i class="k-occ"></i>occupied slots <span id="cap-key"><i class="k-cap"></i>capacity N</span></span>
+          </div>
+          <div id="occ-chart" class="occ-chart"></div>
+        </div>
+      </details>
+
+      <details class="fold panel" id="d-sync">
+        <summary class="fold-head"><span class="fold-title" id="sync-title">Semaphore State</span><span class="fold-hint">mutex, empty, full</span></summary>
+        <div class="fold-body"><div id="sync" class="sync"></div></div>
+      </details>
+
+      <details class="fold panel" id="d-code">
+        <summary class="fold-head"><span class="fold-title">Code being executed</span><span class="fold-hint">which line each thread is on</span></summary>
+        <div class="fold-body"><div id="code" class="code"></div></div>
+      </details>
+
+      <details class="fold panel" id="d-log">
+        <summary class="fold-head"><span class="fold-title">Event Log <span id="log-count" class="muted"></span></span><span class="fold-hint">everything that happened, tick by tick</span></summary>
+        <div class="fold-body"><div id="log" class="log"></div></div>
+      </details>
+    </div>
+  </section>
+
+  <!-- ================= COMPARE TAB ================= -->
+  <section id="tab-compare" class="tab-page">
+    <div class="panel compare-top">
+      <div>
+        <h2 class="panel-title">Compare Algorithm 1 vs Algorithm 2</h2>
+        <div id="cmp-config" class="cmp-config"></div>
+        <details class="fold inner">
+          <summary class="fold-head"><span class="fold-title">How does this work?</span></summary>
+          <div class="fold-body"><p class="muted">Both algorithms are run to completion on the <b>same inputs</b> (taken from the Simulator tab) and the same scheduler, so any difference comes from the synchronization method alone.</p></div>
+        </details>
+      </div>
+      <button id="btn-compare" class="btn primary big">&#9654; Run comparison</button>
+    </div>
+    <div id="cmp-error" class="banner error hidden"></div>
+
+    <div class="folds">
+      <details class="fold panel" id="d-cmp-table">
+        <summary class="fold-head"><span class="fold-title">Results table</span><span class="fold-hint">Alg 1 vs Alg 2, number by number</span></summary>
+        <div class="fold-body"><div id="cmp-table"></div></div>
+      </details>
+      <details class="fold panel" id="d-cmp-charts">
+        <summary class="fold-head"><span class="fold-title">Performance charts</span><span class="fold-hint">bar charts of the same results</span></summary>
+        <div class="fold-body"><div id="cmp-bars" class="cmp-bars"></div></div>
+      </details>
+      <details class="fold panel" id="d-cmp-sweep">
+        <summary class="fold-head"><span class="fold-title">Parameter sweep</span><span class="fold-hint">change one input and watch the result</span></summary>
+        <div class="fold-body">
+          <div class="sweep-head">
+            <label for="sweep-param">Vary</label>
+            <select id="sweep-param" class="select small">
+              <option value="bufferSize">Buffer size N (1 - 12)</option>
+              <option value="cores">CPU cores (1 - 4)</option>
+              <option value="switchCost">Context-switch cost (0 - 5)</option>
+              <option value="consumers">Consumer threads (1 - 6)</option>
+            </select>
+            <label for="sweep-metric">Measure</label>
+            <select id="sweep-metric" class="select small">
+              <option value="makespan">Makespan (ticks)</option>
+              <option value="throughput">Throughput (items / 100 ticks)</option>
+              <option value="avgWait">Average waiting time</option>
+              <option value="cpuEfficiency">CPU efficiency (%)</option>
+            </select>
+            <button id="btn-sweep" class="btn">Run sweep</button>
+          </div>
+          <div id="sweep-chart" class="sweep-chart"></div>
+          <p id="sweep-note" class="muted"></p>
+        </div>
+      </details>
+    </div>
+  </section>
+
+  <!-- ================= BUFFER COMPARISON TAB ================= -->
+  <section id="tab-buffers" class="tab-page">
+    <div class="panel compare-top">
+      <div>
+        <h2 class="panel-title">Buffered vs Non-buffered</h2>
+        <div id="buf-config" class="cmp-config"></div>
+        <details class="fold inner">
+          <summary class="fold-head"><span class="fold-title">How does this work?</span></summary>
+          <div class="fold-body"><p class="muted">The same workload (taken from the Simulator tab) is run with <b>no buffer</b> (zero capacity, direct hand-off),
+            a <b>bounded buffer</b> of N slots and an <b>unbounded buffer</b>. Only the buffer changes, so the table shows what a buffer
+            buys (less waiting, more overlap of producing and consuming) and what it costs (memory).</p></div>
+        </details>
+      </div>
+      <div class="buf-actions">
+        <label class="field-label" for="buf-algo">Synchronization</label>
+        <select id="buf-algo" class="select small">
+          <option value="semaphore">Algorithm 1 - Semaphore + Mutex</option>
+          <option value="busywait">Algorithm 2 - Busy-Waiting Spinlock</option>
+        </select>
+        <button id="btn-buf-compare" class="btn primary big">&#9654; Run buffer comparison</button>
+      </div>
+    </div>
+    <div id="buf-error" class="banner error hidden"></div>
+
+    <div class="folds">
+      <details class="fold panel" id="d-buf-table">
+        <summary class="fold-head"><span class="fold-title">Results table</span><span class="fold-hint">no buffer vs bounded vs unbounded</span></summary>
+        <div class="fold-body"><div id="buf-table"></div></div>
+      </details>
+      <details class="fold panel" id="d-buf-charts">
+        <summary class="fold-head"><span class="fold-title">Performance charts</span><span class="fold-hint">bar charts of the same results</span></summary>
+        <div class="fold-body"><div id="buf-bars" class="cmp-bars"></div></div>
+      </details>
+      <details class="fold panel" id="d-buf-sweep">
+        <summary class="fold-head"><span class="fold-title">Buffer sweep</span><span class="fold-hint">change one input and watch the result</span></summary>
+        <div class="fold-body">
+          <div class="sweep-head">
+            <label for="bsweep-param">Vary</label>
+            <select id="bsweep-param" class="select small">
+              <option value="consumeTime">Consume time (1 - 10)</option>
+              <option value="produceTime">Produce time (1 - 10)</option>
+              <option value="consumers">Consumer threads (1 - 6)</option>
+              <option value="producers">Producer threads (1 - 6)</option>
+              <option value="bufferSize">Buffer size N (1 - 12)</option>
+            </select>
+            <label for="bsweep-metric">Measure</label>
+            <select id="bsweep-metric" class="select small">
+              <option value="makespan">Makespan (ticks)</option>
+              <option value="prodWaitPerItem">Producer wait per item</option>
+              <option value="peakOccupancy">Peak items in buffer (memory)</option>
+              <option value="throughput">Throughput (items / 100 ticks)</option>
+            </select>
+            <button id="btn-bsweep" class="btn">Run sweep</button>
+          </div>
+          <div id="bsweep-chart" class="sweep-chart"></div>
+          <p id="bsweep-note" class="muted"></p>
+        </div>
+      </details>
+    </div>
+  </section>
+</main>
+
+<footer class="foot">
+  SLA Project &middot; Operating Systems &middot; Computer Engineering, SAKEC &middot; Rishi Ghoricha (13) &amp; Aditya Ghosh (14) &middot; Stage 3
+</footer>
+
+<!-- Scripts are plain (non-module) files so the page also works when opened directly from disk. -->
+<script src="js/config.js"></script>
+<script src="js/semaphore.js"></script>
+<script src="js/buffer.js"></script>
+<script src="js/programs.js"></script>
+<script src="js/thread.js"></script>
+<script src="js/simulation.js"></script>
+<script src="js/metrics.js"></script>
+<script src="js/charts.js"></script>
+<script src="js/ui.js"></script>
+<script src="js/compare.js"></script>
+<script src="js/main.js"></script>
+</body>
+</html>
