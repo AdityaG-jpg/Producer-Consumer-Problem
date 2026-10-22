@@ -423,3 +423,16 @@ main { max-width: 1180px; margin: 0 auto; }
   .stage-grid { grid-template-columns: 1fr; }
   #d-code .code, #d-sync .sync { grid-template-columns: 1fr; }
 }
+
+/* ---- Stage 3: Algorithm 3 (F&A ring buffer) ---- */
+:root { --a3: #1e8a6c; }
+.algo-tag.a3 { color: var(--a3); }
+.algo-card.research:has(input:checked) { border-color: var(--a3); background: #e6f4ef; }
+/* four algorithm cards: wrap into two rows instead of squeezing into one */
+.setup .algo-options { flex-wrap: wrap; }
+.setup .algo-card { flex: 1 1 calc(50% - 8px); min-width: 170px; }
+/* compare table: one header colour per algorithm (class names beat the nth-child colours) */
+.cmp-table thead th.h-semaphore.h-semaphore { background: var(--a1); }
+.cmp-table thead th.h-busywait.h-busywait { background: var(--a2); }
+.cmp-table thead th.h-faa.h-faa { background: var(--a3); }
+.cmp-table thead th.h-best.h-best { background: #5b6286; }
