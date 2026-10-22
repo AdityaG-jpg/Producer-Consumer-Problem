@@ -25,7 +25,7 @@
     </div>
     <div>
       <h1>Producer&ndash;Consumer Synchronization Simulator</h1>
-      <p>Unbuffered &middot; Bounded &middot; Unbounded buffer &middot; Semaphore + Mutex vs Busy-Waiting Spinlock</p>
+      <p>Unbuffered &middot; Bounded &middot; Unbounded buffer &middot; Semaphore + Mutex vs Busy-Waiting Spinlock vs F&amp;A Ring Buffer (research)</p>
     </div>
   </div>
   <nav class="tabs" role="tablist">
@@ -61,6 +61,12 @@
               <span class="algo-tag a2">Algorithm 2</span>
               <strong>Busy-Waiting Spinlock</strong>
               <small>waiting thread spins</small>
+            </label>
+            <label class="algo-card research" title="Research-based (Morrison &amp; Afek): no mutex; each thread takes a ticket with one fetch-and-add and uses its own slot">
+              <input type="radio" name="algorithm" value="faa">
+              <span class="algo-tag a3">Algorithm 3 &middot; research</span>
+              <strong>Lock-free F&amp;A Ring Buffer</strong>
+              <small>no mutex: a ticket picks the slot</small>
             </label>
             <label class="algo-card demo" title="Shows the race condition">
               <input type="radio" name="algorithm" value="nosync">
@@ -195,11 +201,11 @@
   <section id="tab-compare" class="tab-page">
     <div class="panel compare-top">
       <div>
-        <h2 class="panel-title">Compare Algorithm 1 vs Algorithm 2</h2>
+        <h2 class="panel-title">Compare Algorithms 1, 2 and 3</h2>
         <div id="cmp-config" class="cmp-config"></div>
         <details class="fold inner">
           <summary class="fold-head"><span class="fold-title">How does this work?</span></summary>
-          <div class="fold-body"><p class="muted">Both algorithms are run to completion on the <b>same inputs</b> (taken from the Simulator tab) and the same scheduler, so any difference comes from the synchronization method alone.</p></div>
+          <div class="fold-body"><p class="muted">All algorithms are run to completion on the <b>same inputs</b> (taken from the Simulator tab) and the same scheduler, so any difference comes from the synchronization method alone. Algorithm 3 needs a buffer, so with <b>Unbuffered</b> only Algorithms 1 and 2 are compared.</p></div>
         </details>
       </div>
       <button id="btn-compare" class="btn primary big">&#9654; Run comparison</button>
@@ -208,7 +214,7 @@
 
     <div class="folds">
       <details class="fold panel" id="d-cmp-table">
-        <summary class="fold-head"><span class="fold-title">Results table</span><span class="fold-hint">Alg 1 vs Alg 2, number by number</span></summary>
+        <summary class="fold-head"><span class="fold-title">Results table</span><span class="fold-hint">all algorithms, number by number</span></summary>
         <div class="fold-body"><div id="cmp-table"></div></div>
       </details>
       <details class="fold panel" id="d-cmp-charts">
